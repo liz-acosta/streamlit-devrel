@@ -3,49 +3,55 @@ import pandas as pd
 import numpy as np
 from streamlit_gsheets import GSheetsConnection
 
-WORKSHEET_NAME="20240203_utm-io_links_202402031724020"
+WORKSHEET_NAME='202408_devrel-data-ytd'
 
-st.title('The DevRel Digest January 2024 performance')
+st.title('The DevRel Digest utm metrics')
 
 # Create a connection object.
-conn = st.connection("gsheets", type=GSheetsConnection)
+CONN = st.connection("gsheets", type=GSheetsConnection)
 
-source_click_data = conn.read(
-    worksheet=WORKSHEET_NAME,
-    header=0,
-    ttl="10m",
-    usecols=[6, 9],
-    nrows=4,
-)
+COLUMNS = ['created_at', 'url', 'clicks', 'utm_source', 'utm_campaign']
 
-st.subheader('Number of clicks to dev.to by source')
+# Get the data
+def sheet_data(): 
+    data = CONN.read(
+        worksheet=WORKSHEET_NAME,
+        header=0,
+        ttl="10m",
+        usecols=COLUMNS,
+        skip_blank_lines=True,
+    )
+    print(data)
+    return data['utm_source']
 
-source_click_chart_data = pd.DataFrame(
-   {
-       "Source": source_click_data['utm_source'],
-       "Clicks": source_click_data['clicks'],
-   }
-)
+# st.subheader('Number of clicks to dev.to by source')
 
-st.bar_chart(source_click_chart_data , x="Source", y="Clicks")
+# source_click_chart_data = pd.DataFrame(
+#    {
+#        "Source": source_click_data['utm_source'],
+#        "Clicks": source_click_data['clicks'],
+#    }
+# )
 
-st.subheader('Number of clicks to links included in dev.to')
+# st.bar_chart(source_click_chart_data , x="Source", y="Clicks")
 
-click_next_data = conn.read(
-    worksheet=WORKSHEET_NAME,
-    header=0,
-    ttl="10m",
-    usecols=[4, 6],
-    skiprows=[1, 2, 3, 4]
-)
+# st.subheader('Number of clicks to links included in dev.to')
 
-print(click_next_data)
+# click_next_data = conn.read(
+#     worksheet=WORKSHEET_NAME,
+#     header=0,
+#     ttl="10m",
+#     usecols=[4, 6],
+#     skiprows=[1, 2, 3, 4]
+# )
 
-click_next_chart_data = pd.DataFrame(
-   {
-       "Link": click_next_data['url'],
-       "Clicks": click_next_data['clicks'],
-   }
-)
+# print(click_next_data)
 
-st.bar_chart(click_next_chart_data , x="Link", y="Clicks")
+# click_next_chart_data = pd.DataFrame(
+#    {
+#        "Link": click_next_data['url'],
+#        "Clicks": click_next_data['clicks'],
+#    }
+# )
+
+# st.bar_chart(click_next_chart_data , x="Link", y="Clicks")
