@@ -1,51 +1,76 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import altair as alt
 from streamlit_gsheets import GSheetsConnection
 
-WORKSHEET_NAME="20240203_utm-io_links_202402031724020"
+WORKSHEET_NAME='202408_devrel-data-ytd'
 
-st.title('The DevRel Digest January 2024 performance')
+st.title('The DevRel Digest utm insights')
 
 # Create a connection object.
-conn = st.connection("gsheets", type=GSheetsConnection)
+CONN = st.connection("gsheets", type=GSheetsConnection)
 
-source_click_data = conn.read(
-    worksheet=WORKSHEET_NAME,
-    header=0,
-    ttl="10m",
-    usecols=[6, 9],
-    nrows=4,
-)
+COLUMNS = ['created_at', 'url', 'clicks', 'utm_source', 'utm_campaign']
 
-st.subheader('Number of clicks to dev.to by source')
+UTM_SOURCE = 'dev-to'
 
-source_click_chart_data = pd.DataFrame(
-   {
-       "Source": source_click_data['utm_source'],
-       "Clicks": source_click_data['clicks'],
-   }
-)
+# Get the data and use caching
+@st.cache_data
+def sheet_data(): 
+    
+    data = CONN.read(
+        worksheet=WORKSHEET_NAME,
+        header=0,
+        ttl="10m",
+        usecols=COLUMNS,
+        skip_blank_lines=True,
+    )
 
-st.bar_chart(source_click_chart_data , x="Source", y="Clicks")
+    # Convert the `created_at` column to a datetime dtype
+    # Then convert that to just a month (1-12)
+    data['created_at'] = pd.to_datetime(data['created_at']).dt.month_name()
+    
+    # Drop any rows where the `utm_source` is not `dev-to`
+    index_utm_source = data[(data['utm_source'] != UTM_SOURCE)].index
+    data.drop(index_utm_source, inplace=True)
+    
+    return data
 
-st.subheader('Number of clicks to links included in dev.to')
+def selection_list():
+    selection_list = list(app_data.created_at.unique())[::-1]
+    selection_list.append("All time")
+    return selection_list
 
-click_next_data = conn.read(
-    worksheet=WORKSHEET_NAME,
-    header=0,
-    ttl="10m",
-    usecols=[4, 6],
-    skiprows=[1, 2, 3, 4]
-)
+def display_chart(app_data, selected_month):
+    
+    if selected_month and selected_month != "All time":
+        display_data = app_data[app_data.created_at == selected_month]
+    elif selected_month == "All time":
+        display_data = app_data
+    else:
+       display_data = app_data 
 
-print(click_next_data)
+    bar_chart = (
+        alt.Chart(display_data)
+        .mark_bar()
+        .encode(y='clicks:Q',
+                x=alt.X('url:N', axis=alt.Axis(labelAngle=-45)).sort('-y'),
+                href='url:N'))
 
-click_next_chart_data = pd.DataFrame(
-   {
-       "Link": click_next_data['url'],
-       "Clicks": click_next_data['clicks'],
-   }
-)
+    st.altair_chart(bar_chart, use_container_width=True)
 
-st.bar_chart(click_next_chart_data , x="Link", y="Clicks")
+with st.sidebar:
+    st.page_link("https://dev.to/lizzzzz/series/25904", label="The DevRel Digest")
+
+app_data = sheet_data()
+
+selected_month = st.selectbox("Select a month",
+                             selection_list(),
+                             index=None,
+                             placeholder="Select a month")
+
+display_chart(app_data, selected_month)
+
+
+
+
